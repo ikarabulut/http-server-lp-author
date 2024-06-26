@@ -3,10 +3,11 @@ use hyper::server::conn::Http;
 use hyper::service::service_fn;
 use hyper::{Body, Method, Request, Response, StatusCode};
 use tokio::net::TcpListener;
+use std::error::Error;
 
 /// This is our service handler. It receives a Request, routes on its
 /// path, and returns a Future of a Response.
-async fn handle_request(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Box<dyn Error + Send + Sync>> {
     match (req.method(), req.uri().path()) {
         // Serve some instructions at /
         (&Method::GET, "/") => Ok(Response::new(Body::from(
@@ -22,7 +23,14 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, hyper::Err
             let reversed_body = whole_body.iter().rev().cloned().collect::<Vec<u8>>();
             Ok(Response::new(Body::from(reversed_body)))
         }
-
+       
+        (&Method::POST, "/parrot") => {
+            let whole_body = hyper::body::to_bytes(req.into_body()).await?;
+            let body_string = String::from_utf8(whole_body.to_vec())?;
+            let body_response = format!("you said:: {}", body_string);
+            Ok(Response::new(Body::from(body_response))) 
+        }
+        
         // Return the 404 Not Found for other routes.
         _ => {
             let mut not_found = Response::default();
